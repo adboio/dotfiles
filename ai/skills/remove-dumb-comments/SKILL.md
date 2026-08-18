@@ -30,6 +30,12 @@ If the answer restates the code, a symbol's name, a type, or data sitting on the
 lines, delete it. The fix for a line that needs narration is a better name, a smaller function,
 or a type, not a sentence describing it.
 
+Length is a signal, not a rule. A why usually fits in one or two lines. When a comment runs
+longer, re-read it sentence by sentence: most long comments are one real why wrapped in
+narration of the surrounding code, and the narration goes. Keep the sentence that carries the
+why; if no single sentence does, the whole comment goes. Do not restructure code to satisfy
+this; just cut the comment down to what earns its place.
+
 A comment earns its place only by answering a _why_ the code cannot:
 
 - ✅ `// Stripe sends the amount in cents; the rest of our system uses dollars`
@@ -91,6 +97,34 @@ matching semantics. "What it renders" or "what it returns" is not that.
   (AND-across-tokens semantics the name does not imply)
 - ✅ `/** Segmented control ... so the choices read at a glance instead of hiding in a dropdown. */`
   (states why this exists instead of the default)
+
+### Docstrings that narrate the function's own body
+
+A docstring that walks through what the function does, in order ("looks up X, then falls back
+to Y, then creates Z"), is narration with a `"""` around it. The body already says that, and it
+will say something different after the next edit while the docstring keeps saying the old thing.
+Keep a docstring only for a contract or invariant the signature cannot carry (matching semantics,
+what a `None` return means, an ordering guarantee, "callers rely on this being idempotent").
+Delete the sequence-of-steps kind.
+
+- ❌ `"""Look up by role first, then adopt a legacy row and stamp it, else create."""` (that is
+  the function, restated)
+- ✅ `"""``legacy_lookup`` must be covered by a unique constraint; that is what makes the
+  IntegrityError fallback safe under concurrent calls."""` (an invariant the reader cannot see)
+
+### Comments that describe another file's current behavior
+
+A comment that explains this code by describing what some other file does right now ("the route
+effect in Sidebar consumes this flag", "matches what task creation does in TaskInput", "the
+callback in views.py always sends X") is a liability, not context. It is true today, nobody is
+notified when the other file changes, and the next reader, human or agent, will trust it. Delete
+it unless it states *why the coupling exists* (a constraint, a contract) rather than what the
+other side currently happens to do. If the coupling is real and non-obvious, the durable fix is a
+name or a shared constant, not a sentence pointing across the codebase.
+
+- ❌ `// ChannelsSidebar's route effect reads this and skips sliding into the space`
+- ✅ `// Keyed on the channel, not consumed on first read, so an effect re-run in StrictMode
+  cannot lose it` (the why lives here and stays true regardless of the other file)
 
 ### Section dividers that echo the data
 
@@ -164,11 +198,16 @@ the next reader, who cannot tell whether it is a note, a rollback plan, or an ac
    - One-line docstrings and JSDoc: `grep -rnE '/\*\*.*\*/' <scope>`
    - Section-divider echoes: `grep -rnE '^\s*(//|#) [A-Z][a-z]+\s*$' <scope>`
    Skim the functional pragmas out of the candidate list before judging (step 3 in scope/safety).
-2. Run each candidate through the gate. When unsure, delete.
-3. Apply the deletions. Fix em-dashes and "currently"/"today" hedges in the comments that
-   survive.
-4. Verify nothing structural broke. Comment removal must not change behavior, so run the
+2. Run each candidate through the gate and write a verdict for every one, in a table:
+   comment text (backticked, truncated), `Remove` or `Keep`, one short reason. Every candidate
+   gets a row; "kept the rest" is not a verdict. When unsure, `Remove`.
+3. Count: if fewer than a third of the candidates were marked `Remove`, re-read the `Keep`
+   rows once more against the gate before applying. Agents under-delete far more often than
+   they over-delete; the second pass is where the borderline ones fall.
+4. Apply the deletions and trims. Fix em-dashes and "currently"/"today" hedges in the comments
+   that survive.
+5. Verify nothing structural broke. Comment removal must not change behavior, so run the
    touched area's build, lint, and tests. A failure means you cut a functional pragma or a
    doctest; restore it.
-5. Report what you cut and what you kept, grouped by reason, in a few lines. For each keeper
-   that was close, state the why in one line so the next reviewer does not re-litigate it.
+6. Report the table plus before/after comment line counts for the scope. For each keeper that
+   was close, the table row's reason is the record; do not re-argue it in prose.
