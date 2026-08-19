@@ -112,17 +112,25 @@ Delete the sequence-of-steps kind.
 - ✅ `"""``legacy_lookup`` must be covered by a unique constraint; that is what makes the
   IntegrityError fallback safe under concurrent calls."""` (an invariant the reader cannot see)
 
-### Comments that describe another file's current behavior
+### Comments that describe behavior the code here does not control
 
-A comment that explains this code by describing what some other file does right now ("the route
-effect in Sidebar consumes this flag", "matches what task creation does in TaskInput", "the
-callback in views.py always sends X") is a liability, not context. It is true today, nobody is
-notified when the other file changes, and the next reader, human or agent, will trust it. Delete
-it unless it states *why the coupling exists* (a constraint, a contract) rather than what the
-other side currently happens to do. If the coupling is real and non-obvious, the durable fix is a
-name or a shared constant, not a sentence pointing across the codebase.
+A comment that explains this code by describing what something *else* does right now is a
+liability, not context. "Else" is anything outside the lines that would break the claim: another
+file ("the route effect in Sidebar consumes this flag"), the other side of an API or process
+boundary ("listing is a pure read; the server provisions in provision_defaults"), or a service
+being called ("the webhook always sends X"). The claim is true today, nothing notifies this
+comment when the other side changes, and the next reader, human or agent, will trust it. The
+boundary case is the most dangerous: the other side can ship independently, so the comment can
+rot without any diff touching this repo's file.
+
+Delete it unless it states *why the coupling exists* (a constraint, a contract the other side
+has promised) rather than what the other side currently happens to do. If the coupling is real
+and non-obvious, the durable fix is a name or a shared constant, not a sentence pointing across
+the codebase.
 
 - ❌ `// ChannelsSidebar's route effect reads this and skips sliding into the space`
+- ❌ `// Listing is a pure read; the default channels are provisioned explicitly elsewhere`
+  (a client docstring vouching for server behavior it does not control)
 - ✅ `// Keyed on the channel, not consumed on first read, so an effect re-run in StrictMode
   cannot lose it` (the why lives here and stays true regardless of the other file)
 
